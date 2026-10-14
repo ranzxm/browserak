@@ -72,7 +72,7 @@ class MainActivity : Activity() {
     private val surface get() = if (dark) 0xff121917.toInt() else 0xfff7f9f8.toInt()
     private val card get() = if (dark) 0xff202b26.toInt() else Color.WHITE
     private val ink get() = if (dark) 0xffe9f1ed.toInt() else 0xff1c2c25.toInt()
-    private val muted get() = if (dark) 0xffa1b4a9.toInt() else 0xff718178.toInt()
+    private val muted get() = if (dark) 0xffa1b4a9.toInt() else 0xff586b60.toInt()
     private val accent get() = if (dark) 0xff79d9af.toInt() else 0xff176b52.toInt()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -146,13 +146,13 @@ class MainActivity : Activity() {
         root.addView(container, LinearLayout.LayoutParams(-1, 0, 1f))
         root.addView(View(this).apply { setBackgroundColor(if (dark) 0xff2c3932.toInt() else 0xffe6ece8.toInt()) }, LinearLayout.LayoutParams(-1, dp(1)))
         val bottom = LinearLayout(this).apply { setBackgroundColor(card); setPadding(dp(6), dp(4), dp(6), dp(4)) }
-        bottom.addView(iconButton("back", "Kembali") { back() }, LinearLayout.LayoutParams(0, dp(52), 1f))
-        bottom.addView(iconButton("home", "Beranda") { web?.loadUrl(HOME) }, LinearLayout.LayoutParams(0, dp(52), 1f))
+        bottom.addView(iconButton("back", "Kembali") { back() }, LinearLayout.LayoutParams(0, -2, 1f))
+        bottom.addView(iconButton("home", "Beranda") { web?.loadUrl(HOME) }, LinearLayout.LayoutParams(0, -2, 1f))
         grabButton = iconButton("grab", "Media terdeteksi", "Grab") { scanMedia() }
-        bottom.addView(grabButton, LinearLayout.LayoutParams(0, dp(52), 1f))
+        bottom.addView(grabButton, LinearLayout.LayoutParams(0, -2, 1f))
         tabButton = iconButton("tabs", "Daftar tab", "1 tab") { showTabs() }
-        bottom.addView(tabButton, LinearLayout.LayoutParams(0, dp(52), 1f))
-        bottom.addView(iconButton("menu", "Menu browser") { showMenu() }, LinearLayout.LayoutParams(0, dp(52), 1f))
+        bottom.addView(tabButton, LinearLayout.LayoutParams(0, -2, 1f))
+        bottom.addView(iconButton("menu", "Menu browser") { showMenu() }, LinearLayout.LayoutParams(0, -2, 1f))
         root.addView(bottom)
         setContentView(root)
     }
@@ -168,7 +168,7 @@ class MainActivity : Activity() {
 
     private fun iconButton(icon: String, description: String, label: String = "", action: () -> Unit) = button(label, description, action).apply {
         val drawable = BrowserIcon(icon, if (icon == "shield" || icon == "grab") accent else ink).apply { setBounds(0, 0, dp(22), dp(22)) }
-        textSize = 10f; gravity = Gravity.CENTER; compoundDrawablePadding = dp(3)
+        textSize = 10f; gravity = Gravity.CENTER; compoundDrawablePadding = dp(3); minimumHeight = dp(52)
         if (label.isEmpty()) {
             background = android.graphics.drawable.LayerDrawable(arrayOf(background, drawable)).apply {
                 setLayerGravity(1, Gravity.CENTER); setLayerSize(1, dp(22), dp(22))
@@ -300,8 +300,8 @@ class MainActivity : Activity() {
         val shortcuts = LinearLayout(this)
         listOf(Triple("bookmark", "Bookmark", { showSaved("bookmarks", "Bookmark") }),
             Triple("download", "Unduhan", { showDownloads() }), Triple("script", "Script", { showScripts() })).forEach { (icon, label, action) ->
-            shortcuts.addView(iconButton(icon, label, label, action).apply { textSize = 12f; setPadding(dp(6), dp(15), dp(6), dp(10)); compoundDrawablePadding = dp(10) },
-                LinearLayout.LayoutParams(0, dp(88), 1f).apply { marginStart = dp(4); marginEnd = dp(4) })
+            shortcuts.addView(iconButton(icon, label, label, action).apply { textSize = 12f; minimumHeight = dp(88); setPadding(dp(6), dp(15), dp(6), dp(10)); compoundDrawablePadding = dp(10) },
+                LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(4); marginEnd = dp(4) })
         }
         content.addView(shortcuts, LinearLayout.LayoutParams(-1, -2))
         val protectionCard = LinearLayout(this).apply {
@@ -383,8 +383,8 @@ class MainActivity : Activity() {
                 group.forEachIndexed { column, (icon, label) ->
                     row.addView(iconButton(icon, label, label) {
                         dialog.dismiss(); menuAction(rowIndex * 3 + column, host)
-                    }.apply { textSize = 11f; setPadding(dp(4), dp(14), dp(4), dp(8)); compoundDrawablePadding = dp(9) },
-                        LinearLayout.LayoutParams(0, dp(82), 1f).apply { marginStart = dp(3); marginEnd = dp(3) })
+                    }.apply { textSize = 11f; minimumHeight = dp(82); setPadding(dp(4), dp(14), dp(4), dp(8)); compoundDrawablePadding = dp(9) },
+                        LinearLayout.LayoutParams(0, -2, 1f).apply { marginStart = dp(3); marginEnd = dp(3) })
                 }
                 if (group.size < 3) row.addView(View(this), LinearLayout.LayoutParams(0, dp(82), (3 - group.size).toFloat()))
                 content.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(6) })
