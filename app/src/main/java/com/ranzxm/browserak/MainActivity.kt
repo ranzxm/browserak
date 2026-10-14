@@ -488,7 +488,8 @@ class MainActivity : Activity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == 20) {
-            val result = if (resultCode == RESULT_OK) WebChromeClient.FileChooserParams.parseResult(resultCode, data) else null
+            val result = if (resultCode == RESULT_OK) WebChromeClient.FileChooserParams.parseResult(resultCode, data)
+                ?.takeIf { values -> values.isNotEmpty() && values.all(::safeUpload) } else null
             uploadCallback?.onReceiveValue(result); uploadCallback = null
         }
         if (resultCode != RESULT_OK) return
@@ -524,6 +525,15 @@ class MainActivity : Activity() {
 
     private fun saveTabs() {
         if (!privateMode) prefs.edit().putString("tabs", JSONArray(tabs.map { it.url }).toString()).apply()
+    }
+
+    private fun safeUpload(uri: Uri): Boolean {
+        // Picker output is untrusted. Never grant a website access to app-owned files/providers.
+        if (uri.scheme != "content" || uri.authority.isNullOrBlank()) return false
+        val provider = packageManager.resolveContentProvider(uri.authority!!, 0) ?: return false
+        if (provider.applicationInfo.uid == applicationInfo.uid) return false
+        return try { contentResolver.openFileDescriptor(uri, "r")?.use { true } ?: false }
+        catch (_: Exception) { false }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {

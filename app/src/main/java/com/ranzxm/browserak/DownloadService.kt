@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.Environment
@@ -289,10 +290,7 @@ class DownloadService : Service() {
     }
 
     private fun alive(job: JSONObject) {
-        if (stopping || transfer.get()?.stopped == true || Thread.currentThread().isInterrupted) throw Stopped()
-        synchronized(lock) {
-            if (find(load(this), job.getString("id"))?.getString("state") != "running") throw Stopped()
-        }
+        if (stopping || transfer.get()?.stopped != false || Thread.currentThread().isInterrupted) throw Stopped()
     }
 
     private fun checkpoint(job: JSONObject, force: Boolean = false) {
@@ -303,14 +301,17 @@ class DownloadService : Service() {
             alive(job)
             val jobs = load(this)
             val stored = find(jobs, job.getString("id")) ?: throw Stopped()
+            if (stored.getString("state") != "running") throw Stopped()
             for (key in listOf("done", "total", "etag", "modified", "hls", "hlsIndex", "hlsBytes", "hlsSignature")) {
                 if (job.has(key)) stored.put(key, job.get(key))
             }
             save(this, jobs)
         }
         token.lastProgress = now
-        getSystemService(NotificationManager::class.java).notify(NOTIFICATION,
-            notification("${job.getString("name")} — ${job.optLong("done")} bytes", job))
+        if (Build.VERSION.SDK_INT < 33 || checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
+            getSystemService(NotificationManager::class.java).notify(NOTIFICATION,
+                notification("${job.getString("name")} — ${job.optLong("done")} bytes", job))
+        }
     }
 
     private fun open(job: JSONObject, initial: URL, headers: Map<String, String> = emptyMap()): HttpURLConnection {
@@ -469,6 +470,7 @@ class DownloadService : Service() {
                 output.toByteArray()
             }
             if (bytes.size > PLAYLIST_LIMIT) throw DownloadError("Playlist exceeds 1 MiB")
+            if (c.contentLengthLong >= 0 && bytes.size.toLong() != c.contentLengthLong) throw RetryableError("Truncated HLS playlist")
             val lines = bytes.toString(Charsets.UTF_8).removePrefix("\uFEFF").lineSequence().map { it.trim() }.filter { it.isNotEmpty() }.toList()
             if (lines.firstOrNull() != "#EXTM3U") throw DownloadError("Invalid HLS playlist")
             return c.url to lines
