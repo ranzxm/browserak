@@ -1,0 +1,47 @@
+name: Android APK
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Check, lint, build
+        run: gradle --no-daemon :app:check :app:assembleDebug :app:assembleRelease
+      - name: APK size
+        run: |
+          du -h app/build/outputs/apk/debug/*.apk app/build/outputs/apk/release/*.apk
+          bytes=$(stat -c%s app/build/outputs/apk/release/*-unsigned.apk)
+          echo "Release APK: $bytes bytes (limit 5 MiB)" >> "$GITHUB_STEP_SUMMARY"
+          test "$bytes" -le 5242880
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browserak-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        with:
+          name: browserak-release-unsigned
+          path: app/build/outputs/apk/release/*.apk
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: checks
+          path: |
+            app/build/reports/
+            app/build/test-results/
