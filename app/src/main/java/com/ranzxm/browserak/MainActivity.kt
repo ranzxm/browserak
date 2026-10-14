@@ -145,7 +145,7 @@ class MainActivity : Activity() {
         container = FrameLayout(this)
         root.addView(container, LinearLayout.LayoutParams(-1, 0, 1f))
         root.addView(View(this).apply { setBackgroundColor(if (dark) 0xff2c3932.toInt() else 0xffe6ece8.toInt()) }, LinearLayout.LayoutParams(-1, dp(1)))
-        val bottom = LinearLayout(this).apply { setBackgroundColor(card); setPadding(dp(6), dp(4), dp(6), dp(4)) }
+        val bottom = LinearLayout(this).apply { isBaselineAligned = false; gravity = Gravity.CENTER_VERTICAL; setBackgroundColor(card); setPadding(dp(6), dp(4), dp(6), dp(4)) }
         bottom.addView(iconButton("back", "Kembali") { back() }, LinearLayout.LayoutParams(0, -2, 1f))
         bottom.addView(iconButton("home", "Beranda") { web?.loadUrl(HOME) }, LinearLayout.LayoutParams(0, -2, 1f))
         grabButton = iconButton("grab", "Media terdeteksi", "Grab") { scanMedia() }
@@ -160,6 +160,7 @@ class MainActivity : Activity() {
     private fun button(label: String, description: String = label, action: () -> Unit) = Button(this).apply {
         text = label; contentDescription = description; minWidth = 0; minimumWidth = 0
         isAllCaps = false; textSize = 13f; setTextColor(ink)
+        stateListAnimator = null; elevation = 0f
         background = RippleDrawable(ColorStateList.valueOf(0x24176b52), rounded(card, 14), rounded(Color.WHITE, 14))
         setPadding(dp(8), 0, dp(8), 0); setOnClickListener { action() }
     }
@@ -167,6 +168,7 @@ class MainActivity : Activity() {
     private fun rounded(color: Int, radius: Int) = GradientDrawable().apply { setColor(color); cornerRadius = dp(radius).toFloat() }
 
     private fun iconButton(icon: String, description: String, label: String = "", action: () -> Unit) = button(label, description, action).apply {
+        background = RippleDrawable(ColorStateList.valueOf(0x24176b52), rounded(Color.TRANSPARENT, 14), rounded(Color.WHITE, 14))
         val drawable = BrowserIcon(icon, if (icon == "shield" || icon == "grab") accent else ink).apply { setBounds(0, 0, dp(22), dp(22)) }
         textSize = 10f; gravity = Gravity.CENTER; compoundDrawablePadding = dp(3); minimumHeight = dp(52)
         if (label.isEmpty()) {

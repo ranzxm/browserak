@@ -89,8 +89,13 @@ jobs:
             sleep 3
             adb shell screencap -p /sdcard/home.png
             adb pull /sdcard/home.png screenshots/home.png
-            adb shell input tap 970 1830
+            adb shell uiautomator dump /sdcard/window.xml
+            adb pull /sdcard/window.xml screenshots/window.xml
+            python3 -c 'import re,subprocess,xml.etree.ElementTree as E; n=next(n for n in E.parse("screenshots/window.xml").iter("node") if n.get("content-desc")=="Menu browser"); x1,y1,x2,y2=map(int,re.findall(r"\d+",n.get("bounds"))); subprocess.run(["adb","shell","input","tap",str((x1+x2)//2),str((y1+y2)//2)],check=True)'
             sleep 2
+            adb shell uiautomator dump /sdcard/menu.xml
+            adb pull /sdcard/menu.xml screenshots/menu.xml
+            python3 -c 'import xml.etree.ElementTree as E; assert any(n.get("content-desc")=="Perbarui filter" for n in E.parse("screenshots/menu.xml").iter("node")), "Menu panel did not open"'
             adb shell screencap -p /sdcard/menu.png
             adb pull /sdcard/menu.png screenshots/menu.png
             adb logcat -d -s AndroidRuntime:E > screenshots/runtime.txt
