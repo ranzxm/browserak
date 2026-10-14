@@ -4,6 +4,11 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      visual_check:
+        description: 'Capture Android UI screenshots on GitHub runner'
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -47,3 +52,50 @@ jobs:
           path: |
             app/build/reports/
             app/build/test-results/
+  ui-preview:
+    if: github.event_name == 'workflow_dispatch' && inputs.visual_check
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/download-artifact@v4
+        with:
+          name: browserak-debug-apk
+          path: apk
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          arch: x86_64
+          profile: pixel_2
+          disable-animations: true
+          script: |
+            mkdir -p screenshots
+            adb install apk/app-debug.apk
+            adb shell am start -n com.ranzxm.browserak/.MainActivity
+            sleep 8
+            adb shell input keyevent 4
+            sleep 2
+            adb shell am start -n com.ranzxm.browserak/.MainActivity
+            sleep 3
+            adb shell screencap -p /sdcard/home.png
+            adb pull /sdcard/home.png screenshots/home.png
+            adb shell input tap 970 1830
+            sleep 2
+            adb shell screencap -p /sdcard/menu.png
+            adb pull /sdcard/menu.png screenshots/menu.png
+            adb logcat -d -s AndroidRuntime:E > screenshots/runtime.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ui-screenshots
+          path: screenshots/

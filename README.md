@@ -19,6 +19,7 @@ Artifact `browserak-release-unsigned` memakai R8/resource shrinking, **belum dap
 
 ## Fitur
 
+- UI native: toolbar ikon garis, address bar membulat, beranda pencarian/shortcut, panel bawah untuk menu/tab/grabber/unduhan. Tema gelap mencakup dialog sistem.
 - Tab, pencarian DuckDuckGo, bookmark, riwayat, tema terang/gelap, navigasi.
 - Grabber memantau URL request berakhiran media/file umum, memindai `video/audio/source` saat tombol Grab ditekan, menangkap download WebView; tersedia URL manual. Ukuran ditentukan downloader, bukan melakukan HEAD untuk setiap request.
 - Downloader: dua file paralel, antrean persisten, notifikasi, pause/resume HTTP Range dengan validator, retry jaringan/HTTP sementara maksimal tiga kali. **Satu koneksi per file**, belum multi-range seperti 1DM. Tanpa validator ETag/Last-Modified, resume memulai ulang agar tidak mencampur konten.
@@ -39,5 +40,7 @@ Artifact `browserak-release-unsigned` memakai R8/resource shrinking, **belum dap
 ## Pemeriksaan
 
 Workflow menjalankan `gradle --no-daemon :app:check :app:assembleDebug :app:assembleRelease`, mencakup unit test dan Android Lint. Tidak ada toolchain Android yang dijalankan lokal. Uji perangkat belum otomatis: cek login, navigasi/tab, script, adblock, pause/resume, jaringan putus, penyimpanan penuh, proses mati, sesi privat, ekspor file pada Android 8 dan Android terbaru.
+
+Opsional: **Run workflow → visual_check** menjalankan emulator hanya di runner GitHub; artifact `ui-screenshots` berisi tangkapan beranda/menu dan log crash. Ini smoke check, bukan pengganti uji perangkat/accessibility.
 
 Daftar filter diunduh dari sumber resmi; lihat pemberitahuan lisensi upstream yang disimpan bersama konten filter. Tidak ada daftar upstream yang dibundel atau diklaim sebagai karya proyek ini.
