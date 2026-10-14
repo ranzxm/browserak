@@ -158,6 +158,29 @@ class DownloadService : Service() {
 
         private fun origin(url: URL): String = "${url.protocol.lowercase(Locale.ROOT)}://${url.host.lowercase(Locale.ROOT)}:${if (url.port < 0) url.defaultPort else url.port}"
 
+        internal fun sameOrigin(first: URL, second: URL): Boolean = origin(first) == origin(second)
+
+        internal fun redirectTarget(current: URL, location: String): URL {
+            val next = checkedUrl(current.toURI().resolve(location).toString())
+            if (current.protocol.equals("https", true) && !next.protocol.equals("https", true))
+                throw DownloadError("Insecure HTTPS redirect refused")
+            return next
+        }
+
+        /** Returns response length and resource total; rejects unsafe append responses. */
+        internal fun validatedRange(header: String?, position: Long, contentLength: Long, previousTotal: Long): Pair<Long, Long> {
+            val range = Regex("bytes (\\d+)-(\\d+)/(\\d+)").matchEntire(header.orEmpty())
+                ?: throw DownloadError("Invalid Content-Range")
+            val start = range.groupValues[1].toLongOrNull() ?: throw DownloadError("Invalid range start")
+            val end = range.groupValues[2].toLongOrNull() ?: throw DownloadError("Invalid range end")
+            val total = range.groupValues[3].toLongOrNull() ?: throw DownloadError("Invalid range total")
+            if (start != position || end < start || end >= total) throw DownloadError("Mismatched Content-Range")
+            val length = end - start + 1
+            if (contentLength >= 0 && contentLength != length) throw DownloadError("Mismatched range length")
+            if (position > 0 && previousTotal >= 0 && previousTotal != total) throw DownloadError("Range total changed")
+            return length to total
+        }
+
         private fun clearCredentials(job: JSONObject) {
             // Paused/error jobs retain credentials for explicit resume; terminal jobs do not.
             for (key in listOf("cookie", "referer", "ua", "url", "etag", "modified")) job.remove(key)
@@ -316,7 +339,7 @@ class DownloadService : Service() {
 
     private fun open(job: JSONObject, initial: URL, headers: Map<String, String> = emptyMap()): HttpURLConnection {
         var url = initial
-        val cookieOrigin = origin(checkedUrl(job.getString("url")))
+        val cookieOrigin = checkedUrl(job.getString("url"))
         repeat(9) { hop ->
             alive(job)
             val c = (url.openConnection() as HttpURLConnection).apply {
@@ -326,7 +349,7 @@ class DownloadService : Service() {
                 useCaches = false
                 setRequestProperty("Accept-Encoding", "identity")
                 setRequestProperty("User-Agent", job.getString("ua"))
-                if (origin(url) == cookieOrigin) {
+                if (sameOrigin(url, cookieOrigin)) {
                     job.optString("cookie").takeIf { it.isNotEmpty() }?.let { setRequestProperty("Cookie", it) }
                     job.optString("referer").takeIf { it.isNotEmpty() }?.let { setRequestProperty("Referer", it) }
                 }
@@ -341,9 +364,7 @@ class DownloadService : Service() {
                 if (status !in listOf(301, 302, 303, 307, 308)) return c
                 if (hop == 8) throw DownloadError("Too many redirects")
                 val location = c.getHeaderField("Location") ?: throw DownloadError("Redirect without Location")
-                val next = checkedUrl(url.toURI().resolve(location).toString())
-                if (url.protocol == "https" && next.protocol != "https") throw DownloadError("Insecure HTTPS redirect refused")
-                url = next
+                url = redirectTarget(url, location)
             } catch (e: Exception) {
                 c.disconnect()
                 if (token.connection === c) token.connection = null
@@ -401,15 +422,9 @@ class DownloadService : Service() {
                 var expected = c.contentLengthLong
                 var total = expected
                 if (status == 206) {
-                    val range = Regex("bytes (\\d+)-(\\d+)/(\\d+)").matchEntire(c.getHeaderField("Content-Range").orEmpty())
-                        ?: throw DownloadError("Invalid Content-Range")
-                    val start = range.groupValues[1].toLongOrNull() ?: throw DownloadError("Invalid range start")
-                    val end = range.groupValues[2].toLongOrNull() ?: throw DownloadError("Invalid range end")
-                    total = range.groupValues[3].toLongOrNull() ?: throw DownloadError("Invalid range total")
-                    if (start != position || end < start || end >= total) throw DownloadError("Mismatched Content-Range")
-                    expected = end - start + 1
-                    if (c.contentLengthLong >= 0 && c.contentLengthLong != expected) throw DownloadError("Mismatched range length")
-                    if (position > 0 && job.optLong("total", -1L).let { it >= 0 && it != total }) throw DownloadError("Range total changed")
+                    val range = validatedRange(c.getHeaderField("Content-Range"), position, c.contentLengthLong, job.optLong("total", -1L))
+                    expected = range.first
+                    total = range.second
                     val etag = c.getHeaderField("ETag")
                     val modified = c.getHeaderField("Last-Modified")
                     if (position > 0 && ((etag != null && job.optString("etag").isNotEmpty() && etag != job.optString("etag")) ||
