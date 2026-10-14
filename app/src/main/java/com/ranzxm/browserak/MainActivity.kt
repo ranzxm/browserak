@@ -408,7 +408,7 @@ class MainActivity : Activity() {
             .setMessage("${Uri.parse(media.url).host}\nHanya media yang Anda berhak unduh. HLS non-DRM saja. Ukuran diketahui setelah koneksi.")
             .setView(input).setPositiveButton("Unduh") { _, _ ->
                 try {
-                    DownloadService.enqueue(this, media.url, input.text.toString(), media.referer.takeIf(::isWebUrl),
+                    DownloadService.enqueue(this, media.url, input.text.toString(), downloadReferer(media),
                         CookieManager.getInstance().getCookie(media.url), web?.settings?.userAgentString ?: "Browserak")
                     toast("Masuk antrean")
                 } catch (e: Exception) { toast(e.message ?: "Gagal memulai unduhan") }
@@ -536,6 +536,17 @@ class MainActivity : Activity() {
         catch (_: Exception) { false }
     }
 
+    private fun downloadReferer(media: Media): String? {
+        if (!isWebUrl(media.referer)) return null
+        val page = java.net.URI(media.referer)
+        val target = java.net.URI(media.url)
+        if (page.scheme == "https" && target.scheme != "https") return null
+        val pageUrl = page.toURL()
+        return if (DownloadService.sameOrigin(pageUrl, target.toURL())) {
+            media.referer.substringBefore('#')
+        } else "${page.scheme}://${page.rawAuthority}/"
+    }
+
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putBoolean("private", privateMode)
         saveTabs(); super.onSaveInstanceState(outState)
@@ -560,7 +571,8 @@ class MainActivity : Activity() {
         private const val HOME = "about:blank"
         internal fun isWebUrl(url: String): Boolean = try {
             val uri = java.net.URI(url)
-            uri.scheme in listOf("http", "https") && !uri.host.isNullOrBlank() && uri.userInfo == null
+            url.length <= 16384 && uri.scheme in listOf("http", "https") && !uri.host.isNullOrBlank() && uri.userInfo == null &&
+                (uri.port == -1 || uri.port in 1..65535)
         } catch (_: Exception) { false }
         private fun isMedia(url: String) = url.substringBefore('?').substringBefore('#').lowercase().let { path ->
             listOf(".mp4", ".webm", ".m3u8", ".mp3", ".m4a", ".ogg", ".wav", ".flac", ".pdf", ".zip", ".apk").any(path::endsWith)
